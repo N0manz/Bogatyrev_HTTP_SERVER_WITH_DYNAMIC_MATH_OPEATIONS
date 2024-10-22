@@ -1,0 +1,8 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/sergejbogatyrev/Desktop/Bogatyrev_BIG/main'
+relocations:
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _handle_client, symObjAddr: 0x0, symBinAddr: 0x100003824, symSize: 0x368 }
+  - { offsetInCU: 0x7E, offset: 0x7E, size: 0x8, addend: 0x0, symName: _handle_client, symObjAddr: 0x0, symBinAddr: 0x100003824, symSize: 0x368 }
+  - { offsetInCU: 0x154, offset: 0x154, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x380, symBinAddr: 0x100003BA4, symSize: 0x148 }
+...
