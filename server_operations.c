@@ -19,13 +19,12 @@ void handle_client(int client_socket) {
     int read_size;
 
     // Чтение данных от клиента
-    read_size = recv(client_socket, buffer, BUFFER_SIZE, 0); // получаем значение сокета и записываем его в буфер(получаем данные от клиента)
+    read_size = recv(client_socket, buffer, BUFFER_SIZE, 0); 
 
-    // Проверка на переполнение буфера
     if (read_size > BUFFER_SIZE) {
         send_response(client_socket, "Error: Buffer overflow");
         fprintf(stderr, "Buffer overflow detected. Terminating connection.\n");
-        exit(EXIT_FAILURE);  // Закрываем сервер при возникновении ошибки
+        exit(EXIT_FAILURE);  
     }
 
     if (read_size < 0) {
@@ -36,9 +35,9 @@ void handle_client(int client_socket) {
 
     buffer[read_size] = '\0';
 
-    char *body = strstr(buffer, "\r\n\r\n"); // находим нашу двойную каретку 
+    char *body = strstr(buffer, "\r\n\r\n");  
     if (body) {
-        body += 4;  // Пропускаем символы \r\n\r\n
+        body += 4;  
 
         char operation;
         char num1_str[BUFFER_SIZE], num2_str[BUFFER_SIZE];
@@ -63,7 +62,7 @@ void handle_client(int client_socket) {
             char response[BUFFER_SIZE];
 
             if (error) {
-                snprintf(response, BUFFER_SIZE, "Error: Invalid operation or input"); //печатаем форматироанную строку в буффер размером buffer_size дабы не было переполнения  
+                snprintf(response, BUFFER_SIZE, "Error: Invalid operation or input");   
                 send_response(client_socket, response);
                 fprintf(stderr, "Invalid operation: %c between %ld and %ld\n", operation, num1, num2);
                 exit(EXIT_FAILURE);

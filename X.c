@@ -4,7 +4,7 @@
 #include "math_operations.h"
 #include "server_operations.h"
 #include "X.h"
-#include <errno.h>   // Для проверки ошибок strtol
+#include <errno.h>
 #include <string.h>
 
 int validate_number(char *num_str, long *num) {
