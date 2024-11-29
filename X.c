@@ -35,9 +35,6 @@ double process_operation(char operation, long num1, long num2, int *error) {
         case 'l':
             result = logarithm(num1, num2, error);
             break;
-        case '^':
-            result = power(num1, num2, error);
-            break;
         default:
             *error = 1;
     }

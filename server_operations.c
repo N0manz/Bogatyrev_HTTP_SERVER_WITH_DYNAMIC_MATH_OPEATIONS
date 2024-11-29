@@ -31,7 +31,7 @@ void handle_client(int client_socket) {
     if (read_size < 0) {
         perror("recv failed");
         send_response(client_socket, "Error: Failed to receive data");
-        close(client_socket); // Закрываем клиентский сокет в случае ошибки
+        close(client_socket); // Закрываем клиентский сокет в случае ошибки, если не удалось считать
         return;
     }
 
