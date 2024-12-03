@@ -8,7 +8,16 @@
 #include "server_operations.h"
 #include "X.h"
 #include <arpa/inet.h>
+// ввыводим в поток ошибок соообщение о ошибке и закрываем сокет 
+void log_and_close(int client_socket, const char *log_message, const char *response_message) {
+    if (log_message) {
+        fprintf(stderr, "%s\n", log_message); 
+    }
+    send_response(client_socket, response_message); 
+    close(client_socket); 
+}
 
+// отправляем ответ пользователю, любое и плохое и хорошее
 void send_response(int client_socket, const char *message) {
     send(client_socket, message, strlen(message), 0);
     close(client_socket);
@@ -18,81 +27,64 @@ void handle_client(int client_socket) {
     char buffer[BUFFER_SIZE];
     int read_size;
 
-    // читаем данные от клиента 
+    // Читаем данные от клиента
     read_size = recv(client_socket, buffer, BUFFER_SIZE, 0);
 
     if (read_size > BUFFER_SIZE) {
-        send_response(client_socket, "Error: Buffer overflow");
-        fprintf(stderr, "Buffer overflow detected. Terminating connection.\n");
-        close(client_socket); // Закрываем клиентский сокет перед завершением
-        return;  
+        log_and_close(client_socket, "Buffer overflow detected. Terminating connection.", "Error: Buffer overflow");
+        return;
     }
 
     if (read_size < 0) {
-        perror("recv failed");
-        send_response(client_socket, "Error: Failed to receive data");
-        close(client_socket); // Закрываем клиентский сокет в случае ошибки, если не удалось считать
+        log_and_close(client_socket, "recv failed", "Error: Failed to receive data");
         return;
     }
 
     buffer[read_size] = '\0';
 
-    char *body = strstr(buffer, "\r\n\r\n"); // вообще как понял скипаем http заголовок и переходим к телу и возвращаем указатель на начало этого \r\n\r\n
+    char *body = strstr(buffer, "\r\n\r\n"); // Переходим к телу запроса
     if (body) {
-        body += 4; // перемещаем наш указатель на 4 вперед скипая это чудо
+        body += 4; // Пропускаем \r\n\r\n
 
-        OperationData op_data; // Используем структуру OperationData
         char num1_str[BUFFER_SIZE], num2_str[BUFFER_SIZE];
+        long num1, num2;
+        char operation;
         int error = 0;
 
-        // Используем sscanf для извлечения символа операции и строк для чисел
-        if (sscanf(body, "%c %s %s", &op_data.operation, num1_str, num2_str) == 3) {
-            // Валидация первого числа
-            if (validate_number(num1_str, &op_data.num1) == -1) {
-                send_response(client_socket, "Error: Invalid number format for the first operand"); // то что отправляем клиенту
-                fprintf(stderr, "Invalid number format for the first operand: %s\n", num1_str); // то что выводим в своей консоли, fprintf чтобы выводить в поток с ошибками
-                close(client_socket); // Закрываем клиентский сокет
+        // Извлекаем данные
+        if (sscanf(body, "%c %s %s", &operation, num1_str, num2_str) == 3) {
+            if (validate_number(num1_str, &num1) == -1) {
+                log_and_close(client_socket, "Invalid number format for the first operand.", "Error: Invalid number format for the first operand");
                 return;
             }
 
-            // Валидация второго числа
-            if (validate_number(num2_str, &op_data.num2) == -1) {
-                send_response(client_socket, "Error: Invalid number format for the second operand");
-                fprintf(stderr, "Invalid number format for the second operand: %s\n", num2_str);
-                close(client_socket); // Закрываем клиентский сокет
+            if (validate_number(num2_str, &num2) == -1) {
+                log_and_close(client_socket, "Invalid number format for the second operand.", "Error: Invalid number format for the second operand");
                 return;
             }
 
-            // Выполняем операцию
-            double result = process_operation(op_data.operation, op_data.num1, op_data.num2, &error);
+            double result = process_operation(operation, num1, num2, &error);
             char response[BUFFER_SIZE];
 
-            if (error == 1) {   
-                send_response(client_socket, "Error: Invalid result");
-                fprintf(stderr, "Invalid result for operation: %c %ld %ld\n", op_data.operation, op_data.num1, op_data.num2);
-                close(client_socket); // Закрываем клиентский сокет
+            if (error) {
+                log_and_close(client_socket, "Invalid operation or input.", "Error: Invalid operation or input");
                 return;
-            } 
+            }
 
-            // Формируем и отправляем ответ
             snprintf(response, BUFFER_SIZE, "%.2f", result);
             send_response(client_socket, response);
         } else {
-            send_response(client_socket, "Error: Invalid request");
-            fprintf(stderr, "Invalid request format: %s\n", body);
-            close(client_socket); // Закрываем клиентский сокет
+            log_and_close(client_socket, "Invalid request format.", "Error: Invalid request");
             return;
         }
     } else {
-        send_response(client_socket, "Error: Missing request body");
-        fprintf(stderr, "Missing request body in: %s\n", buffer);
-        close(client_socket); // Закрываем клиентский сокет
+        log_and_close(client_socket, "Missing request body.", "Error: Missing request body");
     }
-
-    close(client_socket);
 }
 
-int create_server_socket(struct sockaddr_in *server_addr) {
+
+
+int create_server_socket(struct sockaddr_in *server_addr, int PORT) {
     int server_socket; 
 
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -119,24 +111,31 @@ int create_server_socket(struct sockaddr_in *server_addr) {
 
     return server_socket; // всё ок и удалось создать серверный сокет
 }
-
-void run_server() {
+void run_server(int argc, char *argv[]) {
     int server_socket, client_socket;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr); // чтобы для функции accept передать обёем необходимой памяти
 
-    server_socket = create_server_socket(&server_addr); // создаем наш серверный сокет
+    int PORT = 8080;
+    if (argc == 3 && strstr(argv[1], "-p") != NULL) {
+        char *endptr;
+        errno = 0;
+        long parsed_port = strtol(argv[2], &endptr, 10);
+
+        if (errno != 0 || *endptr != '\0' || parsed_port <= 0) {
+            fprintf(stderr, "Invalid port number\n");
+            exit(EXIT_FAILURE);
+        }
+        PORT = (int)parsed_port;
+    } else if (argc != 1) {
+        exit(EXIT_FAILURE);
+    }
+    server_socket = create_server_socket(&server_addr, PORT); // создаем наш серверный сокет
 
     printf("Server listening on port %d\n", PORT);
 
     while (1) {
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len); // ждем пока какая-нибудь душа подключиться к серверу
-        if (client_socket < 0) {
-            fprintf(stderr, "Accept failed: %s\n", strerror(errno));
-            close(server_socket);
-            exit(EXIT_FAILURE);
-        }
-
         handle_client(client_socket); // логика работы с клиентом
     }
 

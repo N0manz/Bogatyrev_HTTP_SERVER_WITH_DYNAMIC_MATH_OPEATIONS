@@ -1,6 +1,6 @@
 #include "server_operations.h"
 
-int main() {
-    run_server();
+int main(int argc, char *argv[]) {
+    run_server(argc, argv);
     return 0;
 }
